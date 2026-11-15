@@ -1,0 +1,86 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: multi-lang-service-template
+  title: Production Service Template (Python & .NET Core)
+  description: Scaffold a production-ready Python FastAPI or .NET Core service with CI/CD manifests
+spec:
+  owner: platform-team
+  type: service
+
+  parameters:
+    - title: Service Specifications
+      required:
+        - name
+        - owner
+        - language
+        - componentType
+      properties:
+        name:
+          title: Service Name
+          type: string
+          description: Unique identifier (e.g. billing-api, user-service)
+        owner:
+          title: Owner / Team
+          type: string
+          ui:field: OwnerPicker
+        language:
+          title: Language & Framework
+          type: string
+          enum:
+            - python-service
+            - dotnet-service
+          enumNames:
+            - Python (FastAPI)
+            - .NET Core (8.0 Minimal API)
+        componentType:
+          title: Architecture Type
+          type: string
+          enum:
+            - api
+            - webapp
+            - background-worker
+
+    - title: Repository Destination
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Target Repository
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Language Skeleton
+      action: fetch:template
+      input:
+        url: ./skeletons/${{ parameters.language }}
+        values:
+          name: ${{ parameters.name }}
+          componentType: ${{ parameters.componentType }}
+
+    - id: publish
+      name: Publish Repository to GitHub
+      action: publish:github
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        access: private
+        description: Generated via Backstage POC for ${{ parameters.name }}
+
+    - id: register
+      name: Register in Backstage Catalog
+      action: catalog:register
+      input:
+        catalogInfoUrl: "${{ steps.publish.output.catalogInfoUrl }}"
+
+  output:
+    links:
+      - title: Repository URL
+        url: ${{ steps.publish.output.remoteUrl }}
+      - title: Open in Catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
